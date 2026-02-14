@@ -1,0 +1,82 @@
+{
+  "summary": {
+    "nothink_results_path": "results/mmlu_pro/validation/mmlu_pro_validation_nothink_qwen3_32b.jsonl",
+    "dataset_id": "TIGER-Lab/MMLU-Pro",
+    "split": "validation",
+    "model_id": "Qwen/Qwen3-32B",
+    "dtype": "torch.bfloat16",
+    "device_map": "auto",
+    "num_initial_incorrect_questions": 2,
+    "num_baseline_cot_correct": 0,
+    "num_baseline_cot_incorrect": 2,
+    "num_baseline_cot_truncated": 2,
+    "num_recovery_used": 2,
+    "fraction_accuracy": {},
+    "figure_path": "results/mmlu_pro/validation/tmp_batch2.png",
+    "runtime_seconds": 25.01692055500007
+  },
+  "questions": [
+    {
+      "question_id": 2,
+      "question": "Let A be the set of all ordered pairs of integers (m, n) such that 7m + 12n = 22. What is the greatest negative number in the set B = {m + n : (m, n) \\in A}?",
+      "options": [
+        "-5",
+        "0",
+        "-3",
+        "-7",
+        "-4",
+        "-6",
+        "-1",
+        "-2",
+        "-9",
+        "N/A"
+      ],
+      "gold_answer": "E",
+      "baseline_cot_response": "To solve this problem, we need to find the greatest negative number in the set $ B = \\{m + n : (m, n) \\in A\\} $, where $ A $ is the set of all ordered pairs of integers $ (m, n) $ such that $ 7m + 12n = 22 $.\n\n---\n\n### Step 1: Understand the Diophantine Equation\n\nWe are given the linear Diophantine equation:\n$$\n7m + 12n = 22\n$$\nWe want to find all integer solutions $ (m, n) $, and then compute $ m + n $ for each solution, and find the **greatest negative** value of $ m + n $.\n\n---\n\n### Step 2: Solve the Diophantine Equation\n\nWe solve $ 7m + 12n = 22 $ for integer solutions.\n\nFirst, check if a solution exists. The GCD of 7 and 12 is 1, and 1 divides 22, so solutions exist.\n\nWe can use the **Extended Euclidean Algorithm** to find a particular solution.\n\n#### Extended Euclidean Algorithm:\n\nWe want to find integers $ x, y $ such",
+      "baseline_cot_generated_tokens": 256,
+      "baseline_cot_max_new_tokens": 256,
+      "baseline_cot_truncated": true,
+      "baseline_cot_prediction_primary": "A",
+      "baseline_cot_parse_method_primary": "tail_standalone_letter",
+      "baseline_cot_recovery_used": true,
+      "baseline_cot_recovery_response": "To solve the problem, we are given the Dioph",
+      "baseline_cot_recovery_prediction": null,
+      "baseline_cot_recovery_parse_method": "none",
+      "baseline_cot_prediction": "A",
+      "baseline_cot_prediction_source": "primary",
+      "baseline_cot_is_correct": false,
+      "fraction_trials": []
+    },
+    {
+      "question_id": 3,
+      "question": "A tank initially contains a salt solution of 3 grams of salt dissolved in 100 liters of water. A salt solution containing 0.02 grams of salt per liter of water is sprayed into the tank at a rate of 4 liters per minute. The sprayed solution is continually mixed with the salt solution in the tank, and the mixture flows out of the tank at a rate of 4 liters per minute. If the mixing is instantaneous, how many grams of salt are in the tank after 100 minutes have elapsed?",
+      "options": [
+        "3 + e^-2",
+        "2 - e^-4",
+        "2 - e^-2",
+        "3 + e^-4",
+        "2 + e^-3",
+        "2 - e^-3",
+        "3 - e^-2",
+        "2 + e^-2",
+        "2 + e^-4",
+        "2"
+      ],
+      "gold_answer": "I",
+      "baseline_cot_response": "K. 3 - e^-4\nL. 3 + e^-3\n\nTo solve this problem, we need to set up a differential equation that models the amount of salt in the tank over time.\n\nLet $ S(t) $ be the amount of salt in the tank at time $ t $ (in minutes). The rate of change of salt in the tank is given by the difference between the rate at which salt enters the tank and the rate at which it leaves.\n\n1. **Rate in**: The incoming solution has a concentration of 0.02 grams per liter and flows in at 4 liters per minute. So, the rate of salt entering the tank is:\n   $$\n   \\text{Rate in} = 0.02 \\, \\text{g/L} \\times 4 \\, \\text{L/min} = 0.08 \\, \\text{g/min}\n   $$\n\n2. **Rate out**: The solution is well-mixed, so the concentration of salt in the tank at time $ t $ is $ \\frac{S(t)}{100} $ grams per liter (since the volume remains constant at 100 liters). The outflow rate is 4 liters",
+      "baseline_cot_generated_tokens": 256,
+      "baseline_cot_max_new_tokens": 256,
+      "baseline_cot_truncated": true,
+      "baseline_cot_prediction_primary": "G",
+      "baseline_cot_parse_method_primary": "tail_standalone_letter",
+      "baseline_cot_recovery_used": true,
+      "baseline_cot_recovery_response": "To continue the reasoning:\n\n2. **Rate out**:",
+      "baseline_cot_recovery_prediction": null,
+      "baseline_cot_recovery_parse_method": "none",
+      "baseline_cot_prediction": "G",
+      "baseline_cot_prediction_source": "primary",
+      "baseline_cot_is_correct": false,
+      "fraction_trials": []
+    }
+  ]
+}
