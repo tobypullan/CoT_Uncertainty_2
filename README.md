@@ -18,14 +18,16 @@ Then run:
 ```bash
 python experiments/benchmarks/local_model.py --model-id Qwen/Qwen3-32B
 python experiments/mmlu_pro/no_think.py
-python experiments/mmlu_pro/CoT_questioning.py --max-new-tokens-cot 4096
+python experiments/mmlu_pro/CoT_questioning.py --max-new-tokens-cot 4096 --question-pool all --fraction-stage-scope all
+python experiments/mmlu_pro/train_layer_probes.py --cot-json results/mmlu_pro/validation/cot_questioning_qwen3_32b.json
 ```
 
 ## Repo layout
 
 - `experiments/benchmarks/local_model.py`: local throughput/latency benchmark.
 - `experiments/mmlu_pro/no_think.py`: full validation split with `/nothink`.
-- `experiments/mmlu_pro/CoT_questioning.py`: CoT baseline + fraction probing on prior misses.
+- `experiments/mmlu_pro/CoT_questioning.py`: CoT baseline + fraction probing with configurable question pool/scope.
+- `experiments/mmlu_pro/train_layer_probes.py`: layer-wise logistic probes on fraction-trial activations.
 - `results/mmlu_pro/validation/`: run artifacts (`.jsonl`, `.json`, `.png`, progress logs).
 - `README_CODEX.md`: handoff/context doc for a new Codex instance.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CoT-fraction probing on questions missed by the no-think MMLU-Pro run."""
+"""CoT-fraction probing with configurable question pools and fraction-stage scope."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ FINAL_ANSWER_LINE_RE = re.compile(r"(?im)^\s*final\s*answer\s*:\s*[A-Z](?:[^\n]*
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe how partial CoT affects /nothink answers on prior mistakes."
+        description="Probe how partial CoT affects /nothink answers on selected MMLU-Pro questions."
     )
     parser.add_argument("--model-id", default="Qwen/Qwen3-32B", help="HF model ID")
     parser.add_argument(
@@ -93,7 +93,19 @@ def parse_args() -> argparse.Namespace:
         "--limit-questions",
         type=int,
         default=None,
-        help="Optional cap on number of incorrect questions to process",
+        help="Optional cap on number of selected questions to process",
+    )
+    parser.add_argument(
+        "--question-pool",
+        default="incorrect",
+        choices=["incorrect", "all"],
+        help="Which question pool to process: prior /nothink incorrect only, or all dataset questions.",
+    )
+    parser.add_argument(
+        "--fraction-stage-scope",
+        default="baseline_correct_only",
+        choices=["baseline_correct_only", "all"],
+        help="Run fraction-stage probes only when baseline CoT is correct, or for all selected questions.",
     )
     parser.add_argument(
         "--cot-batch-size",
@@ -483,7 +495,7 @@ def render_figure(
     records: List[Dict[str, Any]],
     title_suffix: str,
 ) -> Dict[str, float]:
-    eligible = [r for r in records if r["baseline_cot_is_correct"] and r["fraction_trials"]]
+    eligible = [r for r in records if r["fraction_trials"]]
     if not eligible:
         fig, ax = plt.subplots(figsize=(8, 3))
         ax.axis("off")
@@ -568,6 +580,9 @@ def update_nothink_file(
         elif row.get("type") == "summary":
             row["baseline_cot_audit"] = {
                 "model_id": summary["model_id"],
+                "question_pool": summary.get("question_pool", "incorrect"),
+                "fraction_stage_scope": summary.get("fraction_stage_scope", "baseline_correct_only"),
+                "num_processed_from_selected_pool": summary.get("num_initial_questions"),
                 "num_processed_from_incorrect_pool": summary["num_initial_incorrect_questions"],
                 "num_baseline_cot_correct": summary["num_baseline_cot_correct"],
                 "num_baseline_cot_incorrect": summary["num_baseline_cot_incorrect"],
@@ -626,6 +641,8 @@ def build_summary(
         "dataset_id": args.dataset_id,
         "split": args.split,
         "model_id": args.model_id,
+        "question_pool": args.question_pool,
+        "fraction_stage_scope": args.fraction_stage_scope,
         "dtype": str(dtype),
         "device_map": args.device_map,
         "attn_implementation": args.attn_impl,
@@ -637,11 +654,13 @@ def build_summary(
         "max_new_tokens_cot": args.max_new_tokens_cot,
         "max_new_tokens_recovery": args.max_new_tokens_recovery,
         "max_new_tokens_answer": args.max_new_tokens_answer,
+        "num_initial_questions": total_questions,
         "num_initial_incorrect_questions": total_questions,
         "num_processed_questions": len(records),
         "is_final": is_final,
         "num_baseline_cot_correct": len(eligible),
         "num_baseline_cot_incorrect": len(records) - len(eligible),
+        "num_fraction_stage_questions": sum(1 for r in records if r["fraction_trials"]),
         "num_baseline_cot_truncated": truncated_count,
         "num_recovery_used": recovery_used_count,
         "num_cot_cleanup_applied": cleanup_applied_count,
@@ -685,23 +704,33 @@ def main() -> None:
     )
 
     nothink_path = Path(args.nothink_results)
-    if not nothink_path.exists():
-        raise FileNotFoundError(f"Missing no-think result file: {nothink_path}")
-
-    incorrect_qids = parse_incorrect_qids(nothink_path)
-    if args.limit_questions is not None:
-        incorrect_qids = incorrect_qids[: args.limit_questions]
-    if not incorrect_qids:
-        raise RuntimeError("No incorrect questions found in no-think result file.")
-
-    total_q = len(incorrect_qids)
-    print(f"Loaded {total_q} incorrect questions from {nothink_path}")
     print(f"Streaming progress to: {progress_path}")
     print("Loading dataset...")
     dataset = load_dataset(args.dataset_id, split=args.split)
     ds_by_qid: Dict[int, Dict[str, Any]] = {int(row["question_id"]): row for row in dataset}
 
-    missing = [qid for qid in incorrect_qids if qid not in ds_by_qid]
+    if args.question_pool == "incorrect":
+        if not nothink_path.exists():
+            raise FileNotFoundError(f"Missing no-think result file: {nothink_path}")
+        selected_qids = parse_incorrect_qids(nothink_path)
+        if not selected_qids:
+            raise RuntimeError("No incorrect questions found in no-think result file.")
+        print(f"Loaded incorrect-question pool from {nothink_path}")
+    else:
+        selected_qids = sorted(ds_by_qid.keys())
+        if not selected_qids:
+            raise RuntimeError(f"No questions found in dataset split {args.split}.")
+        print(f"Loaded full-question pool from {args.dataset_id}:{args.split}")
+
+    if args.limit_questions is not None:
+        selected_qids = selected_qids[: args.limit_questions]
+    if not selected_qids:
+        raise RuntimeError("No questions selected after applying limits.")
+
+    total_q = len(selected_qids)
+    print(f"Selected {total_q} questions (question_pool={args.question_pool})")
+
+    missing = [qid for qid in selected_qids if qid not in ds_by_qid]
     if missing:
         raise RuntimeError(f"Question IDs missing from dataset split {args.split}: {missing[:8]}")
 
@@ -734,6 +763,8 @@ def main() -> None:
                     "split": args.split,
                     "model_id": args.model_id,
                     "total_questions": total_q,
+                    "question_pool": args.question_pool,
+                    "fraction_stage_scope": args.fraction_stage_scope,
                     "max_new_tokens_cot": args.max_new_tokens_cot,
                     "cot_batch_size": args.cot_batch_size,
                     "fraction_batch_size": args.fraction_batch_size,
@@ -748,7 +779,7 @@ def main() -> None:
         f_progress.flush()
 
         for batch_start in range(0, total_q, args.cot_batch_size):
-            batch_qids = incorrect_qids[batch_start : batch_start + args.cot_batch_size]
+            batch_qids = selected_qids[batch_start : batch_start + args.cot_batch_size]
             batch_examples = [ds_by_qid[qid] for qid in batch_qids]
             batch_end = batch_start + len(batch_qids)
             print(f"\n[Batch] baseline CoT questions {batch_start + 1}-{batch_end}/{total_q}")
@@ -863,7 +894,11 @@ def main() -> None:
                     "fraction_trials": [],
                 }
 
-                if baseline_cot_is_correct and not args.skip_fraction_stage:
+                should_run_fraction_stage = (
+                    not args.skip_fraction_stage
+                    and (args.fraction_stage_scope == "all" or baseline_cot_is_correct)
+                )
+                if should_run_fraction_stage:
                     fraction_metadata: List[Tuple[int, int, int, str]] = []
                     for fraction_idx in range(1, 11):
                         snippet, used_tok, total_tok = cot_fraction_snippet(tokenizer, cot_response, fraction_idx, 10)
@@ -917,7 +952,8 @@ def main() -> None:
                 )
                 print(
                     f"{question_tag} baseline_cot_correct={baseline_cot_is_correct} "
-                    f"truncated={cot_out['truncated']} eligible={baseline_cot_correct_count} "
+                    f"truncated={cot_out['truncated']} baseline_cot_correct_total={baseline_cot_correct_count} "
+                    f"fraction_trials={len(q_record['fraction_trials'])} "
                     f"gen_tokens={generated_tokens_total} tps={tps:.1f} "
                     f"gen_only_tps={gen_only_tps:.1f} elapsed={elapsed:.1f}s"
                 )
@@ -1029,9 +1065,12 @@ def main() -> None:
     print(f"Output JSON: {output_json}")
     print(f"Streaming JSONL: {progress_path}")
     print(f"Output figure: {fig_path}")
-    print(f"Initial incorrect: {summary['num_initial_incorrect_questions']}")
+    print(f"Question pool: {summary['question_pool']}")
+    print(f"Fraction-stage scope: {summary['fraction_stage_scope']}")
+    print(f"Initial pool size: {summary['num_initial_questions']}")
     print(f"Baseline-CoT correct: {summary['num_baseline_cot_correct']}")
     print(f"Baseline-CoT incorrect: {summary['num_baseline_cot_incorrect']}")
+    print(f"Fraction-stage questions: {summary['num_fraction_stage_questions']}")
     print(f"Baseline-CoT truncated: {summary['num_baseline_cot_truncated']}")
     print(f"Recovery used: {summary['num_recovery_used']}")
     print(f"CoT cleanup applied: {summary['num_cot_cleanup_applied']}")
